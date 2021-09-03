@@ -235,13 +235,12 @@ class Encoder(nn.Module):
 
         enc_slf_attn_list = []
 
-        # -- Forward
-        enc_output = self.src_word_emb(src_seq)
-
         # 对 token embedding做一个放大
         if self.scale_emb:
             print('scale embedding! -> source ')
-            enc_output *= self.d_model ** 0.5
+            enc_output = (self.d_model ** 0.5) * self.src_word_emb(src_seq)
+        else:
+            enc_output = self.src_word_emb(src_seq)
 
         enc_output = self.dropout(self.position_enc(enc_output))
         enc_output = self.layer_norm(enc_output)
@@ -282,13 +281,12 @@ class Decoder(nn.Module):
 
         dec_slf_attn_list, dec_enc_attn_list = [], []
 
-        # -- Forward
-        dec_output = self.trg_word_emb(trg_seq)
-
         # 对 token embedding做一个放大
         if self.scale_emb:
             print('scale embedding! -> target ')
-            dec_output *= self.d_model ** 0.5
+            dec_output = (self.d_model ** 0.5) * self.trg_word_emb(trg_seq)
+        else:
+            dec_output = self.trg_word_emb(trg_seq)
 
         dec_output = self.dropout(self.position_enc(dec_output))
         dec_output = self.layer_norm(dec_output)
@@ -311,7 +309,7 @@ class Transformer(nn.Module):
             self, n_src_vocab, n_trg_vocab, src_pad_idx, trg_pad_idx,
             d_word_vec=512, d_model=512, d_inner=2048,
             n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1, n_position=512,
-            trg_emb_prj_weight_sharing=True, emb_src_trg_weight_sharing=True,
+            trg_emb_prj_weight_sharing=True, emb_src_trg_weight_sharing=False,
             scale_emb_or_prj='emb'):
 
         super().__init__()
@@ -371,8 +369,8 @@ class Transformer(nn.Module):
         # 在某些特殊任务下，某些字符是不存在。
 
         # 比如 trg vocab可能因为没有 '<pad>' 字符这里建议 将 trg_pad_idx设置为 -1
-        # src_mask = [batch size, 1, src len]
-        # trg_mask = [batch size, trg len, trg len]
+        # src_mask = [batch size, 1,                   src sequence length]
+        # trg_mask = [batch size, trg sequence length, trg sequence length]
         src_mask = get_pad_mask(src_seq, self.src_pad_idx)
         trg_mask = get_pad_mask(trg_seq, self.trg_pad_idx) & get_subsequent_mask(trg_seq)
 
@@ -380,10 +378,13 @@ class Transformer(nn.Module):
         enc_output, *_ = self.encoder(src_seq, src_mask)
         # dec_output = [batch size, trg len, hid dim]
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
-        seq_logit = self.trg_word_prj(dec_output)
+
         if self.scale_prj:
             print('scale project ! -> source ')
-            seq_logit *= self.d_model ** -0.5
+            seq_logit = (self.d_model ** -0.5) * self.trg_word_prj(dec_output)
+        else:
+            seq_logit = self.trg_word_prj(dec_output)
+
 
         # return [batch size * trg length, trg vocab]
         return seq_logit.view(-1, seq_logit.size(2))
