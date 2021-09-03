@@ -399,7 +399,7 @@ if __name__ == '__main__':
     print(get_subsequent_mask(x).shape)
     # print(torch.tril(torch.ones((x.shape[0], x.shape[1]))).bool().shape)
 
-    tmp = get_pad_mask(x, -1)
+    tmp = get_pad_mask(x, 0)
     print(tmp)
     print(tmp.shape)
     tmp_y = get_subsequent_mask(x)
