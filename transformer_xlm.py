@@ -104,6 +104,8 @@ def get_masks(slen, lengths, causal):
 	assert mask.size() == (bs, slen)
 	assert causal is False or attn_mask.size() == (bs, slen, slen)
 
+	# mask: 对pad的地方mask, 如 encoder端的mask -> (lengths.size(0), slen)
+	# attn_mask: 三角mask, -> (lengths.size(0), slen, slen)
 	return mask, attn_mask
 
 
@@ -352,6 +354,7 @@ class TransformerModel(nn.Module):
 		slen, bs = x.size()
 		assert lengths.size(0) == bs
 		assert lengths.max().item() <= slen
+		# (current length, batch size * beam size) -> (batch size * beam size, current length)
 		x = x.transpose(0, 1)  # batch size as dimension 0
 		assert (src_enc is None) == (src_len is None)
 		if src_enc is not None:
@@ -361,6 +364,7 @@ class TransformerModel(nn.Module):
 		# generate masks
 		mask, attn_mask = get_masks(slen, lengths, causal)
 		if self.is_decoder and src_enc is not None:
+			# encoder mask
 			src_mask = torch.arange(src_len.max(), dtype=torch.long, device=lengths.device) < src_len[:, None]
 
 		# positions
@@ -369,6 +373,7 @@ class TransformerModel(nn.Module):
 			positions = torch.arange(slen, out=positions).unsqueeze(0)
 		else:
 			assert positions.size() == (slen, bs)
+			# (current length, batch size * beam size) -> (batch size * beam size, current length)
 			positions = positions.transpose(0, 1)
 
 		# langs
@@ -573,6 +578,8 @@ class TransformerModel(nn.Module):
 
 		# generated sentences (batch with beam current hypotheses)
 		# tensor.new() : 创建一个新的Tensor，该Tensor的type和device都和原有Tensor一致，且无内容。xx.
+		# generated : (max length, batch size * beam size)
+		# 存放 target token id
 		generated = src_len.new(max_len, bs * beam_size)  # upcoming output
 		generated.fill_(self.pad_index)  # fill upcoming ouput with <PAD>
 		# 第一行填充 eos token
@@ -591,7 +598,7 @@ class TransformerModel(nn.Module):
 		langs = positions.clone().fill_(tgt_lang_id)
 
 		# scores for each sentence in the beam
-		# beams_scores : (batch size * beam size), 填充 -1e9
+		# beams_scores : (batch size * beam size, ), 填充 -1e9
 		beam_scores = src_enc.new(bs, beam_size).fill_(0)
 		beam_scores[:, 1:] = -1e9
 		beam_scores = beam_scores.view(-1)
