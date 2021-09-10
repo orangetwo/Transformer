@@ -393,21 +393,21 @@ class Transformer(nn.Module):
 			seq_logit = self.trg_word_prj(dec_output)
 
 		# return [batch size * trg length, trg vocab]
-		return seq_logit.view(-1, seq_logit.size(2))
+		return seq_logit.view(-1, seq_logit.size(2)), seq_logit
 
 
 if __name__ == '__main__':
-	model = Transformer(10, 10, 1, 1)
-	x = torch.tensor([[1, 2, 3, 0],
-	                  [0, 1, 2, 3]])
+	model = Transformer(10, 10, 1, 1, d_word_vec=32,d_model=32,d_inner=32*4,n_layers=2,n_head=4,d_k=8,d_v=32,)
+	input4encoder = torch.tensor([[2, 2, 3, 1],
+	                  [4, 1, 2, 3]], dtype=torch.long)
 
-	print(get_subsequent_mask(x))
-	print(get_subsequent_mask(x).shape)
-	# print(torch.tril(torch.ones((x.shape[0], x.shape[1]))).bool().shape)
+	input4decoder = torch.tensor([[2,2],[2,2]])
 
-	tmp = get_pad_mask(x, 0)
-	print(tmp)
-	print(tmp.shape)
-	tmp_y = get_subsequent_mask(x)
-	print(tmp & tmp_y)
-	print((tmp & tmp_y).shape)
+	x, y = model(input4encoder, input4decoder)
+	print(y.shape)
+	print(y)
+
+	print(y[:,-1])
+
+
+
