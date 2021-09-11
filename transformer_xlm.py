@@ -9,6 +9,10 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
+"""
+
+本文件无用文件 仅用来学习beam search.
+"""
 
 from logging import getLogger
 import math
